@@ -19,6 +19,7 @@ public class KafkaConfig implements Serializable {
     public long startOffsetTime = kafka.api.OffsetRequest.EarliestTime();
     public boolean useStartOffsetTimeIfOffsetOutOfRange = true;
     public int metricsTimeBucketSizeInSecs = 60;
+    public boolean hystrixIntegration = false;
 
     public KafkaConfig(BrokerHosts hosts, String topic) {
         this(hosts, topic, kafka.api.OffsetRequest.DefaultClientId());

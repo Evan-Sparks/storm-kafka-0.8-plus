@@ -3,6 +3,8 @@ package storm.kafka;
 import backtype.storm.metric.api.IMetric;
 import backtype.storm.utils.Utils;
 import com.google.common.base.Preconditions;
+import com.netflix.hystrix.HystrixCommand;
+import com.netflix.hystrix.HystrixCommandGroupKey;
 import kafka.api.FetchRequest;
 import kafka.api.FetchRequestBuilder;
 import kafka.api.PartitionOffsetRequestInfo;
@@ -136,6 +138,34 @@ public class KafkaUtils {
     }
 
     public static ByteBufferMessageSet fetchMessages(KafkaConfig config, SimpleConsumer consumer, Partition partition, long offset) {
+        if (config.hystrixIntegration) {
+            return new CommandKafkaFetch(config, consumer, partition, offset).execute();
+        } else {
+            return fetchHelper(config, consumer, partition, offset);
+        }
+    }
+
+    private static class CommandKafkaFetch extends HystrixCommand<ByteBufferMessageSet> {
+        private final KafkaConfig config;
+        private final SimpleConsumer consumer;
+        private final Partition partition;
+        private final long offset;
+
+        protected CommandKafkaFetch(KafkaConfig config, SimpleConsumer consumer, Partition partition, long offset) {
+            super(HystrixCommandGroupKey.Factory.asKey("KafkaFetchGroup"));
+            this.config = config;
+            this.partition = partition;
+            this.consumer = consumer;
+            this.offset = offset;
+        }
+
+        @Override
+        protected ByteBufferMessageSet run() throws Exception {
+            return fetchHelper(config, consumer, partition, offset);
+        }
+    }
+
+    private static ByteBufferMessageSet fetchHelper(KafkaConfig config, SimpleConsumer consumer, Partition partition, long offset) {
         ByteBufferMessageSet msgs = null;
         String topic = config.topic;
         int partitionId = partition.partition;
