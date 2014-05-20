@@ -38,7 +38,7 @@ public class PartitionManager {
 
     Long _emittedToOffset;
     SortedSet<Long> _pending = new TreeSet<Long>();
-    Long _committedTo;
+    Long _committedTo = Long.MIN_VALUE;
     LinkedList<MessageAndRealOffset> _waitingToEmit = new LinkedList<MessageAndRealOffset>();
     Partition _partition;
     SpoutConfig _spoutConfig;
@@ -114,6 +114,10 @@ public class PartitionManager {
             Iterable<List<Object>> tups = KafkaUtils.generateTuples(_spoutConfig, toEmit.msg);
             if (tups != null) {
                 for (List<Object> tup : tups) {
+                    if (_spoutConfig.atMostOnce) {
+                        //Ack before emitting to guarantee no repeats
+                        ack(toEmit.offset);
+                    }
                     collector.emit(tup, new KafkaMessageId(_partition, toEmit.offset));
                 }
                 break;
@@ -148,7 +152,8 @@ public class PartitionManager {
             _emittedToOffset = msg.nextOffset();
         }
         if (numMessages > 0) {
-            LOG.info("Added " + numMessages + " messages from: " + _partition + " to internal buffers");
+            commit();
+            LOG.info("Added " + numMessages + " messages from: " + _partition + " to internal buffers and committed offsets");
         }
     }
 
@@ -166,11 +171,14 @@ public class PartitionManager {
 
     public void fail(Long offset) {
         //TODO: should it use in-memory ack set to skip anything that's been acked but not committed???
-        // things might get crazy with lots of timeouts
-        if (_emittedToOffset > offset) {
-            _emittedToOffset = offset;
-            _pending.tailSet(offset).clear();
+        if (!_spoutConfig.atMostOnce) {
+            // things might get crazy with lots of timeouts
+            if (_emittedToOffset > offset) {
+                _emittedToOffset = offset;
+                _pending.tailSet(offset).clear();
+            }
         }
+        //If AtMostOnce just blackhole
     }
 
     public void commit() {
@@ -210,7 +218,11 @@ public class PartitionManager {
         if (_pending.isEmpty()) {
             return _emittedToOffset;
         } else {
-            return _pending.first();
+            if (_spoutConfig.atMostOnce) {
+                return _emittedToOffset;
+            } else {
+                return _pending.first();
+            }
         }
     }
 
