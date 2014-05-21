@@ -133,5 +133,6 @@ public class AtMostOnceTest {
         spout.nextTuple();
         verify(collector, times(2)).emit(anyList(), any());
 
+        server.shutdown();
     }
 }

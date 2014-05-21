@@ -61,7 +61,7 @@ public class ZkCoordinatorTest {
     public void shutdown() throws Exception {
         simpleConsumer.close();
         broker.shutdown();
-        server.close();
+        server.stop();
     }
 
     @Test

@@ -86,7 +86,7 @@ public class KafkaUtils {
                 long totalEarliestTimeOffset = 0;
                 long totalLatestTimeOffset = 0;
                 long totalLatestEmittedOffset = 0;
-                HashMap ret = new HashMap();
+                HashMap<String,Long> ret = new HashMap<String,Long>();
                 if (_partitions != null && _partitions.size() == _partitionToOffset.size()) {
                     for (Map.Entry<Partition, Long> e : _partitionToOffset.entrySet()) {
                         Partition partition = e.getKey();
